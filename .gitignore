@@ -1,5 +1,5 @@
 data/
-*.pkl
+
 __pycache__/
 .env
 .vscode/
