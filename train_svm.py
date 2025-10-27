@@ -2,6 +2,7 @@ from api.utils.preprocess import load_data, preprocess_text
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.svm import LinearSVC
 from sklearn.pipeline import Pipeline
+from sklearn.calibration import CalibratedClassifierCV
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, classification_report
 from joblib import dump
@@ -16,7 +17,7 @@ X_train, X_test, y_train, y_test = train_test_split(
 
 model = Pipeline([
     ("tfidf", TfidfVectorizer(max_features=5000, ngram_range=(1, 2))),
-    ("svm", LinearSVC())
+    ("svm", CalibratedClassifierCV(LinearSVC(), method="sigmoid", cv=5))
 ])
 
 model.fit(X_train, y_train)
