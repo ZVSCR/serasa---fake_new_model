@@ -8,7 +8,7 @@ from utils.preprocess import preprocess_text
 
 model = load("model/model.pkl")
 
-# uvicorn main:app --reload 
+# uvicorn main_local:app --reload 
 
 app = FastAPI()
 
