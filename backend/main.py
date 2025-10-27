@@ -1,23 +1,24 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from joblib import load
 import numpy as np
 import os
+import sys
 
-from utils.preprocess import preprocess_text
+# Adiciona o diretório atual ao path para imports
+sys.path.append(os.path.dirname(__file__))
 
-# model = load("model/model.pkl")
-
-# uvicorn main:app --reload 
+try:
+    from utils.preprocess import preprocess_text
+except ImportError:
+    # Fallback para desenvolvimento
+    def preprocess_text(text):
+        return text.lower().strip()
 
 app = FastAPI()
 
-# para API
-def get_model():
-    model_path = os.path.join(os.path.dirname(__file__), "model", "model.pkl")
-    return load(model_path)
-
+# Middleware CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -29,45 +30,92 @@ app.add_middleware(
 class TextInput(BaseModel):
     text: str
 
-@app.post("/predict")
-def predict(input: TextInput):
+class PredictionOutput(BaseModel):
+    prediction: str
+    confidence: float
+    message: str
 
-    # Para API
-    model = get_model()
+# Cache do modelo
+_model = None
 
-    cleaned_text = preprocess_text(input.text)
+def get_model():
+    global _model
+    if _model is not None:
+        return _model
+    
+    try:
+        # Tenta diferentes caminhos possíveis
+        possible_paths = [
+            os.path.join(os.path.dirname(__file__), "model", "model.pkl"),
+            "./model/model.pkl",
+            "model/model.pkl"
+        ]
+        
+        for model_path in possible_paths:
+            if os.path.exists(model_path):
+                print(f"Carregando modelo de: {model_path}")
+                _model = load(model_path)
+                return _model
+                
+        raise FileNotFoundError("Modelo não encontrado em nenhum caminho")
+        
+    except Exception as e:
+        print(f"Erro carregando modelo: {e}")
+        raise
 
-    # Probabilidade ou score
-    if hasattr(model, "predict_proba"):
-        proba = model.predict_proba([cleaned_text])[0]
-        confidence = float(np.max(proba))
-        pred = int(np.argmax(proba))
-    else:
-        # Fallback para modelos sem predict_proba (como LinearSVC)
-        score = model.decision_function([cleaned_text])[0]
-        confidence = float(1 / (1 + np.exp(-abs(score)))) 
-        pred = int(score > 0)
+@app.get("/")
+async def root():
+    return {"message": "API de Detecção de Fake News"}
 
-    # Mensagens mais humanas
-    if confidence > 0.9:
-        message = "Essa notícia parece bastante confiável."
-    elif confidence > 0.75:
-        message = "Parece ser verdadeira, mas é sempre bom conferir as fontes."
-    elif confidence > 0.6:
-        message = "Cuidado — há indícios de inconsistência, verifique outras fontes."
-    elif confidence > 0.4:
-        message = "Atenção! Essa notícia pode conter informações imprecisas."
-    else:
-        message = "Alerta: fortes indícios de que essa notícia é falsa."
+@app.get("/health")
+async def health_check():
+    try:
+        model = get_model()
+        return {"status": "healthy", "model_loaded": True}
+    except Exception as e:
+        return {"status": "unhealthy", "error": str(e)}
 
-    label = "Fake News" if pred == 0 else "Notícia Real"
+@app.post("/predict", response_model=PredictionOutput)
+async def predict(input: TextInput):
+    try:
+        model = get_model()
+        cleaned_text = preprocess_text(input.text)
 
-    return {
-        "prediction": label, 
-        "confidence": round(confidence, 2),
-        "message": message
-    }
+        # Probabilidade ou score
+        if hasattr(model, "predict_proba"):
+            proba = model.predict_proba([cleaned_text])[0]
+            confidence = float(np.max(proba))
+            pred = int(np.argmax(proba))
+        else:
+            # Fallback para modelos sem predict_proba (como LinearSVC)
+            score = model.decision_function([cleaned_text])[0]
+            confidence = float(1 / (1 + np.exp(-abs(score)))) 
+            pred = int(score > 0)
 
-# if __name__ == "__main__":
-#     import uvicorn
-#     uvicorn.run("main:app", host="192.168.0.103", port=8000, reload=True)
+        # Mensagens mais humanas
+        if confidence > 0.9:
+            message = "Essa notícia parece bastante confiável."
+        elif confidence > 0.75:
+            message = "Parece ser verdadeira, mas é sempre bom conferir as fontes."
+        elif confidence > 0.6:
+            message = "Cuidado — há indícios de inconsistência, verifique outras fontes."
+        elif confidence > 0.4:
+            message = "Atenção! Essa notícia pode conter informações imprecisas."
+        else:
+            message = "Alerta: fortes indícios de que essa notícia é falsa."
+
+        label = "Fake News" if pred == 0 else "Notícia Real"
+
+        return {
+            "prediction": label, 
+            "confidence": round(confidence, 2),
+            "message": message
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao processar: {str(e)}")
+
+# Para desenvolvimento local
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000, reload=True)
