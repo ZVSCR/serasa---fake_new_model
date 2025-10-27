@@ -1,4 +1,4 @@
-from utils.preprocess import load_data, preprocess_text
+from backend.utils.preprocess import load_data, preprocess_text
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.svm import LinearSVC
 from sklearn.pipeline import Pipeline
@@ -25,5 +25,5 @@ y_pred = model.predict(X_test)
 print("Acurácia:", accuracy_score(y_test, y_pred))
 print(classification_report(y_test, y_pred))
 
-dump(model, "Project/model/model.pkl")
+dump(model, "Project/backend/model/model.pkl")
 print("Modelo salvo em model/model.pkl")
