@@ -11,6 +11,7 @@ from utils.preprocess import preprocess_text
 
 # uvicorn main:app --reload 
 
+
 app = FastAPI()
 
 # para API
