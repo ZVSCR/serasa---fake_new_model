@@ -1,40 +1,51 @@
 import re
-import string
+import unicodedata
 import pandas as pd
-import nltk
-from nltk.corpus import stopwords
-from nltk.tokenize import word_tokenize
-from nltk.stem import RSLPStemmer
 
-def setup_nltk():
-    nltk.download("stopwords", quiet=True)
-    nltk.download("punkt", quiet=True)
-    nltk.download("rslp", quiet=True)
+STOPWORDS_PT = {
+    "a", "à", "ao", "aos", "as", "às", "de", "da", "das", "do", "dos", "e",
+    "em", "no", "na", "nas", "nos", "num", "numa", "nuns", "numas",
+    "por", "para", "com", "como", "que", "o", "os", "uma", "umas", "um", "uns",
+    "se", "sua", "suas", "seu", "seus", "é", "ser", "foi", "era", "são", "será",
+    "ao", "aos", "esta", "este", "isto", "isso", "aquele", "aquela", "aquilo",
+    "há", "houve", "ter", "têm", "tem", "havia", "tinha", "tinham", "tido",
+    "já", "não", "mas", "ou", "porque", "quando", "onde", "então", "também",
+    "muito", "pouco", "mesmo", "outro", "outra", "outros", "outras",
+    "sobre", "entre", "após", "antes", "até", "desde", "sem", "sob",
+    "meu", "minha", "meus", "minhas", "teu", "tua", "teus", "tuas", "dele", "dela",
+    "deles", "delas", "nosso", "nossa", "nossos", "nossas"
+}
 
-setup_nltk()
+
+def normalize_accents(text: str) -> str:
+    """Remove acentuação e caracteres não-ASCII."""
+    text = unicodedata.normalize("NFKD", text)
+    return "".join([c for c in text if not unicodedata.combining(c)])
+
 
 def preprocess_text(text: str) -> str:
-    if not isinstance(text, str) or pd.isna(text):
+    if not isinstance(text, str):
         return ""
 
-    text = text.lower()
+    text = normalize_accents(text.lower())
+
+    text = re.sub(r"http\S+|www\S+", " ", text)
     text = re.sub(r"\d+", " ", text)
-    text = text.translate(str.maketrans("", "", string.punctuation))
-    text = re.sub(r"\s+", " ", text).strip()
+    text = re.sub(r"[^\w\s]", " ", text)
 
-    try:
-        tokens = word_tokenize(text, language="portuguese")
-    except:
-        tokens = text.split()
+    tokens = text.split()
 
-    stop_words = set(stopwords.words("portuguese"))
-    tokens = [w for w in tokens if w not in stop_words and len(w) > 2]
+    tokens = [t for t in tokens if len(t) > 2 and t not in STOPWORDS_PT]
 
-    stemmer = RSLPStemmer()
-    tokens = [stemmer.stem(w) for w in tokens]
+    def light_stem(word):
+        for suf in ("mente", "ções", "sões", "ção", "são", "mente", "dade", "dades", "ismo", "ismos", "ista", "istas"):
+            if word.endswith(suf):
+                return word[:-len(suf)]
+        return word
+
+    tokens = [light_stem(t) for t in tokens]
 
     return " ".join(tokens)
-
 
 def load_data(fake_news_dir: str, real_news_dir: str) -> pd.DataFrame:
     import os
