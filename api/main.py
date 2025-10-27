@@ -1,7 +1,6 @@
 from fastapi import FastAPI, HTTPException, Response
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from fastapi.responses import JSONResponse
 from joblib import load
 import numpy as np
 import os
@@ -86,14 +85,11 @@ async def predict(input: TextInput, response: Response):
 
         label = "Fake News" if pred == 0 else "Notícia Real"
 
-        return JSONResponse(
-            content={
-                "prediction": label, 
-                "confidence": round(confidence, 2),
-                "message": message
-            },
-            headers=headers
-        )
+        return {
+            "prediction": label, 
+            "confidence": round(confidence, 2),
+            "message": message
+        }
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erro ao processar: {str(e)}")
