@@ -43,25 +43,14 @@ def get_model():
     if _model is not None:
         return _model
     
-    try:
-        # Tenta diferentes caminhos possíveis
-        possible_paths = [
-            os.path.join(os.path.dirname(__file__), "model", "model.pkl"),
-            "./model/model.pkl",
-            "model/model.pkl"
-        ]
-        
-        for model_path in possible_paths:
-            if os.path.exists(model_path):
-                print(f"Carregando modelo de: {model_path}")
-                _model = load(model_path)
-                return _model
-                
-        raise FileNotFoundError("Modelo não encontrado em nenhum caminho")
-        
-    except Exception as e:
-        print(f"Erro carregando modelo: {e}")
-        raise
+    model_path = os.path.join(os.path.dirname(__file__), "model", "model.pkl")
+    if not os.path.exists(model_path):
+        raise FileNotFoundError(f"Modelo não encontrado em {model_path}")
+    
+    print(f"Carregando modelo de: {model_path}")
+    _model = load(model_path)
+    return _model
+
 
 @app.get("/")
 async def root():
