@@ -1,6 +1,7 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Response
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+from fastapi.responses import JSONResponse
 from joblib import load
 import numpy as np
 import os
@@ -43,8 +44,14 @@ async def root():
     return {"message": "API de Detecção de Fake News"}
 
 @app.post("/predict", response_model=PredictionOutput)
-async def predict(input: TextInput):
+async def predict(input: TextInput, response: Response):
     try:
+        headers = {
+            "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+            "CDN-Cache-Control": "no-store",
+            "Vercel-CDN-Cache-Control": "no-store"
+        }
+
         global _model
         if _model is None:
             model_dir = os.path.join(os.path.dirname(__file__), "model")
@@ -79,11 +86,14 @@ async def predict(input: TextInput):
 
         label = "Fake News" if pred == 0 else "Notícia Real"
 
-        return {
-            "prediction": label, 
-            "confidence": round(confidence, 2),
-            "message": message
-        }
+        return JSONResponse(
+            content={
+                "prediction": label, 
+                "confidence": round(confidence, 2),
+                "message": message
+            },
+            headers=headers
+        )
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erro ao processar: {str(e)}")

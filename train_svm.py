@@ -8,18 +8,10 @@ from joblib import dump
 
 df = load_data("data/fake_news/financeiros", "data/real_news/financeiros")
 
-# df["processed_text"] = df["texto"].apply(preprocess_text)
-
-# X_train, X_test, y_train, y_test = train_test_split(
-#     df["processed_text"], df["label"], test_size=0.3, random_state=42, stratify=df["label"]
-# )
+df["processed_text"] = df["texto"].apply(preprocess_text)
 
 X_train, X_test, y_train, y_test = train_test_split(
-    df["texto"],
-    df["label"], 
-    test_size=0.3, 
-    random_state=42, 
-    stratify=df["label"]
+    df["processed_text"], df["label"], test_size=0.3, random_state=42, stratify=df["label"]
 )
 
 model = Pipeline([
