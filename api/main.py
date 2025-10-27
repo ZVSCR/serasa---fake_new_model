@@ -72,16 +72,21 @@ async def predict(input: TextInput, response: Response):
             pred = int(score > 0)
 
         # Mensagens mais humanas
-        if confidence > 0.9:
-            message = "Essa notícia parece bastante confiável."
-        elif confidence > 0.75:
-            message = "Parece ser verdadeira, mas é sempre bom conferir as fontes."
-        elif confidence > 0.6:
-            message = "Cuidado — há indícios de inconsistência, verifique outras fontes."
-        elif confidence > 0.4:
-            message = "Atenção! Essa notícia pode conter informações imprecisas."
-        else:
-            message = "Alerta: fortes indícios de que essa notícia é falsa."
+        if pred == 1:
+            if confidence > 0.90:
+                message = "MODELO MUITO CONFIANTE (Real): Nossa análise indica com alta certeza que este é um conteúdo de notícia real."
+            elif confidence > 0.75:
+                message = "MODELO CONFIANTE (Real): A classificação sugere que esta é uma notícia real, mas a margem de erro não é nula."
+            else: 
+                message = "MODELO INSEGURO (Pende para Real): A classificação pende levemente para real, mas com baixa confiança. Requer verificação humana."
+
+        else: # pred == 0 (Modelo classifica como Fake News)
+            if confidence > 0.90:
+                message = "MODELO MUITO CONFIANTE (Falsa): Há forte indicação de que se trata de conteúdo enganoso ou falso. Classificado como Falsa."
+            elif confidence > 0.75:
+                message = "MODELO CONFIANTE (Falsa): A classificação aponta com razoável certeza que as informações são imprecisas ou falsas."
+            else: 
+                message = "MODELO INSEGURO (Pende para Falsa): A classificação pende levemente para falsa, mas com baixa confiança. Requer verificação humana."
 
         label = "Fake News" if pred == 0 else "Notícia Real"
 
