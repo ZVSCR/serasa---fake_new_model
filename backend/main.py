@@ -29,6 +29,18 @@ app.add_middleware(
 class TextInput(BaseModel):
     text: str
 
+@app.get("/")
+async def root():
+    return {"message": "API de Detecção de Fake News"}
+
+@app.get("/health")
+async def health_check():
+    try:
+        model = get_model()
+        return {"status": "healthy", "model_loaded": True}
+    except Exception as e:
+        return {"status": "unhealthy", "error": str(e)}
+    
 @app.post("/predict")
 def predict(input: TextInput):
 
