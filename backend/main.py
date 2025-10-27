@@ -3,14 +3,20 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from joblib import load
 import numpy as np
+import os
 
 from utils.preprocess import preprocess_text
 
-model = load("model/model.pkl")
+# model = load("model/model.pkl")
 
 # uvicorn main:app --reload 
 
 app = FastAPI()
+
+# para API
+def get_model():
+    model_path = os.path.join(os.path.dirname(__file__), "model", "model.pkl")
+    return load(model_path)
 
 app.add_middleware(
     CORSMiddleware,
@@ -25,6 +31,10 @@ class TextInput(BaseModel):
 
 @app.post("/predict")
 def predict(input: TextInput):
+
+    # Para API
+    model = get_model()
+
     cleaned_text = preprocess_text(input.text)
 
     # Probabilidade ou score
