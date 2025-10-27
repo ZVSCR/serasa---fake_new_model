@@ -38,36 +38,15 @@ class PredictionOutput(BaseModel):
 # Cache do modelo
 _model = None
 
-def get_model():
-    global _model
-    if _model is not None:
-        return _model
-    
-    model_path = os.path.join(os.path.dirname(__file__), "model", "model.pkl")
-
-    if not os.path.exists(model_path):
-        raise FileNotFoundError(f"Modelo não encontrado em {model_path}")
-    
-    print(f"Carregando modelo de: {model_path}")
-    _model = load(model_path)
-    return _model
-
 @app.get("/")
 async def root():
     return {"message": "API de Detecção de Fake News"}
 
-@app.get("/health")
-async def health_check():
-    try:
-        model = get_model()
-        return {"status": "healthy", "model_loaded": True}
-    except Exception as e:
-        return {"status": "unhealthy", "error": str(e)}
-
 @app.post("/predict", response_model=PredictionOutput)
 async def predict(input: TextInput):
     try:
-        model = get_model()
+        model_path = os.path.join(os.path.dirname(__file__), "model", "model.pkl")
+        model = load(model_path)
         cleaned_text = preprocess_text(input.text)
 
         # Probabilidade ou score
