@@ -57,3 +57,7 @@ def predict(input: TextInput):
         "confidence": round(confidence, 2),
         "message": message
     }
+
+# if __name__ == "__main__":
+#     import uvicorn
+#     uvicorn.run("main:app", host="192.168.0.103", port=8000, reload=True)
