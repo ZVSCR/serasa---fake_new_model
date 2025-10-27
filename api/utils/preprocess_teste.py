@@ -1,17 +1,15 @@
 import re
 import string
 import pandas as pd
-import nltk
+
 from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
 from nltk.stem import RSLPStemmer
 
-def setup_nltk():
-    nltk.download("stopwords", quiet=True)
-    nltk.download("punkt", quiet=True)
-    nltk.download("rslp", quiet=True)
-
-setup_nltk()
+import nltk
+nltk.download("stopwords", quiet=True)
+nltk.download("punkt", quiet=True)
+nltk.download("rslp", quiet=True)
 
 def preprocess_text(text: str) -> str:
     if not isinstance(text, str) or pd.isna(text):
