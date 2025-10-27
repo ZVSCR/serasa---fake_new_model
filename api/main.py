@@ -45,8 +45,13 @@ async def root():
 @app.post("/predict", response_model=PredictionOutput)
 async def predict(input: TextInput):
     try:
-        model_path = os.path.join(os.path.dirname(__file__), "model", "model.pkl")
-        model = load(model_path)
+        global _model
+        if _model is None:
+            model_dir = os.path.join(os.path.dirname(__file__), "model")
+            model_path = os.path.join(model_dir, "model.pkl")
+            _model = load(model_path)
+
+        model = _model
         cleaned_text = preprocess_text(input.text)
 
         # Probabilidade ou score
