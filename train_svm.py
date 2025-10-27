@@ -1,4 +1,4 @@
-from backend.utils.preprocess import load_data, preprocess_text
+from api.utils.preprocess import load_data, preprocess_text
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.svm import LinearSVC
 from sklearn.pipeline import Pipeline
@@ -6,7 +6,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, classification_report
 from joblib import dump
 
-df = load_data("Project/data/fake_news/financeiros", "Project/data/real_news/financeiros")
+df = load_data("data/fake_news/financeiros", "data/real_news/financeiros")
 
 df["processed_text"] = df["texto"].apply(preprocess_text)
 
@@ -25,5 +25,5 @@ y_pred = model.predict(X_test)
 print("Acurácia:", accuracy_score(y_test, y_pred))
 print(classification_report(y_test, y_pred))
 
-dump(model, "Project/backend/model/model.pkl")
+dump(model, "api/model/model.pkl")
 print("Modelo salvo em model/model.pkl")
