@@ -24,7 +24,7 @@ except ImportError:
 tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
 bert_model = AutoModel.from_pretrained(MODEL_NAME).to(device)
 
-def get_bert_embedding(text: str):
+async def get_bert_embedding(text: str):
     """Transforma o texto em embedding BERT médio"""
     inputs = tokenizer(
         text,
@@ -39,7 +39,7 @@ def get_bert_embedding(text: str):
 
     # Usa a média das ativações como representação vetorial
     embedding = outputs.last_hidden_state.mean(dim=1)
-    return embedding.cpu().numpy()
+    return await embedding.cpu().numpy()
 
 app = FastAPI(
     title="API de Detecção de Fake News (SVM com embeddings BERT)",
