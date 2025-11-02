@@ -1,6 +1,8 @@
 from fastapi import FastAPI, HTTPException, Response
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+from transformers import AutoTokenizer, AutoModel
+import torch
 from joblib import load
 import numpy as np
 import os
@@ -9,12 +11,35 @@ import sys
 # Adiciona o diretório atual ao path para imports
 sys.path.append(os.path.dirname(__file__))
 
+MODEL_NAME = "neuralmind/bert-base-portuguese-cased"
+device = "cuda" if torch.cuda.is_available() else "cpu"
+
 try:
     from utils.preprocess import preprocess_text
 except ImportError:
     # Fallback simples para deploy
     def preprocess_text(text):
         return text.lower().strip()
+
+tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
+bert_model = AutoModel.from_pretrained(MODEL_NAME).to(device)
+
+def get_bert_embedding(text: str):
+    """Transforma o texto em embedding BERT médio"""
+    inputs = tokenizer(
+        text,
+        return_tensors="pt",
+        truncation=True,
+        padding=True,
+        max_length=256
+    ).to(device)
+
+    with torch.no_grad():
+        outputs = bert_model(**inputs)
+
+    # Usa a média das ativações como representação vetorial
+    embedding = outputs.last_hidden_state.mean(dim=1)
+    return embedding.cpu().numpy()
 
 app = FastAPI(
     title="API de Detecção de Fake News (SVM com embeddings BERT)",
@@ -74,10 +99,10 @@ async def predict(input: TextInput, response: Response):
             }
 
         # Pré-processamento leve
-        cleaned_text = preprocess_text(text)
+        embedding = get_bert_embedding(input.text)
 
         # Predição com SVM (o modelo já foi treinado sobre embeddings)
-        score = model.decision_function([cleaned_text])[0]
+        score = model.decision_function(embedding)[0]
         confidence = float(1 / (1 + np.exp(-abs(score))))
         pred = int(score > 0)
 
