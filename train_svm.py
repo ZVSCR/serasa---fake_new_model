@@ -1,4 +1,3 @@
-from api.utils.preprocess import load_data, preprocess_text
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.svm import LinearSVC
 from sklearn.pipeline import Pipeline
@@ -6,6 +5,8 @@ from sklearn.calibration import CalibratedClassifierCV
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, classification_report
 from joblib import dump
+
+from api.utils.preprocess import load_data, preprocess_text
 
 df = load_data("data/fake_news/financeiros", "data/real_news/financeiros")
 

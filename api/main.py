@@ -2,19 +2,10 @@ from fastapi import FastAPI, HTTPException, Response
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from joblib import load
+from transformers import AutoTokenizer, AutoModel
+import torch
 import numpy as np
 import os
-import sys
-
-# Adiciona o diretório atual ao path para imports
-sys.path.append(os.path.dirname(__file__))
-
-try:
-    from utils.preprocess import preprocess_text
-except ImportError:
-    # Fallback para desenvolvimento
-    def preprocess_text(text):
-        return text.lower().strip()
 
 app = FastAPI()
 
@@ -35,71 +26,100 @@ class PredictionOutput(BaseModel):
     confidence: float
     message: str
 
-# Cache do modelo
-_model = None
+# ===========================
+# 🔹 Carrega BERT e modelo SVM
+# ===========================
+MODEL_NAME = "neuralmind/bert-base-portuguese-cased"
+device = "cuda" if torch.cuda.is_available() else "cpu"
 
+print(f"Usando dispositivo: {device}")
+
+tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
+bert_model = AutoModel.from_pretrained(MODEL_NAME).to(device)
+
+# Carrega SVM treinado
+model_path = os.path.join(os.path.dirname(__file__), "model", "model.pkl")
+svm_model = load(model_path)
+print("Modelo SVM carregado com sucesso.")
+
+# ===========================
+# 🔹 Função para gerar embedding
+# ===========================
+def get_bert_embedding(text: str):
+    inputs = tokenizer(
+        text,
+        return_tensors="pt",
+        truncation=True,
+        padding=True,
+        max_length=256
+    ).to(device)
+    with torch.no_grad():
+        outputs = bert_model(**inputs)
+    return outputs.last_hidden_state.mean(dim=1).cpu().numpy().flatten()
+
+# ===========================
+# 🔹 Rota principal
+# ===========================
 @app.get("/")
 async def root():
-    return {"message": "API de Detecção de Fake News"}
+    return {"message": "API de Detecção de Fake News com BERTimbau + SVM"}
 
 @app.post("/predict", response_model=PredictionOutput)
 async def predict(input: TextInput, response: Response):
     try:
+        # Evita cache (importante pra Vercel)
         headers = {
             "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
             "CDN-Cache-Control": "no-store",
             "Vercel-CDN-Cache-Control": "no-store"
         }
 
-        global _model
-        if _model is None:
-            model_dir = os.path.join(os.path.dirname(__file__), "model")
-            model_path = os.path.join(model_dir, "model.pkl")
-            _model = load(model_path)
+        text = input.text.strip()
+        if not text or len(text) < 15:
+            return {
+                "prediction": "Indefinido",
+                "confidence": 0.0,
+                "message": "Texto muito curto para análise confiável. Por favor, insira uma notícia completa."
+            }
 
-        model = _model
-        cleaned_text = preprocess_text(input.text)
+        # Gera embedding com BERTimbau
+        embedding = get_bert_embedding(text)
 
-        # Probabilidade ou score
-        if hasattr(model, "predict_proba"):
-            proba = model.predict_proba([cleaned_text])[0]
-            confidence = float(np.max(proba))
-            pred = int(np.argmax(proba))
-        else:
-            # Fallback para modelos sem predict_proba (como LinearSVC)
-            score = model.decision_function([cleaned_text])[0]
-            confidence = float(1 / (1 + np.exp(-abs(score)))) 
-            pred = int(score > 0)
+        # Predição com SVM
+        score = svm_model.decision_function([embedding])[0]
+        confidence = float(1 / (1 + np.exp(-abs(score))))
+        pred = int(score > 0)
 
-        # Mensagens mais humanas
+        # Mensagens humanizadas
         if pred == 1:
-            if confidence > 0.90:
-                message = "MODELO MUITO CONFIANTE (Real): Nossa análise indica com alta certeza que este é um conteúdo de notícia real."
+            if confidence > 0.9:
+                message = "MODELO MUITO CONFIANTE (Real): Alta certeza de que é uma notícia real."
             elif confidence > 0.75:
-                message = "MODELO CONFIANTE (Real): A classificação sugere que esta é uma notícia real, mas a margem de erro não é nula."
-            else: 
-                message = "MODELO INSEGURO (Pende para Real): A classificação pende levemente para real, mas com baixa confiança. Requer verificação humana."
-
-        else: # pred == 0 (Modelo classifica como Fake News)
-            if confidence > 0.90:
-                message = "MODELO MUITO CONFIANTE (Falsa): Há forte indicação de que se trata de conteúdo enganoso ou falso. Classificado como Falsa."
+                message = "MODELO CONFIANTE (Real): Provável notícia real, mas sempre bom conferir."
+            else:
+                message = "MODELO INSEGURO (Real): Pende para real, mas com baixa confiança. Verificação recomendada."
+        else:
+            if confidence > 0.9:
+                message = "MODELO MUITO CONFIANTE (Falsa): Forte indicação de conteúdo falso."
             elif confidence > 0.75:
-                message = "MODELO CONFIANTE (Falsa): A classificação aponta com razoável certeza que as informações são imprecisas ou falsas."
-            else: 
-                message = "MODELO INSEGURO (Pende para Falsa): A classificação pende levemente para falsa, mas com baixa confiança. Requer verificação humana."
+                message = "MODELO CONFIANTE (Falsa): Provável conteúdo enganoso."
+            else:
+                message = "MODELO INSEGURO (Falsa): Pende para falsa, mas requer verificação humana."
 
         label = "Fake News" if pred == 0 else "Notícia Real"
 
         return {
-            "prediction": label, 
+            "prediction": label,
             "confidence": round(confidence, 2),
             "message": message
         }
-        
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erro ao processar: {str(e)}")
 
-# Para desenvolvimento local
+# ===========================
+# 🔹 Execução local
+# ===========================
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000, reload=True)
