@@ -35,7 +35,7 @@ def get_bert_embedding(text):
     return embedding.squeeze()
 
 # Carregar dados
-df = load_data("Project/data/fake_news/financeiros", "Project/data/real_news/financeiros")
+df = load_data("data/fake_news/financeiros", "data/real_news/financeiros")
 
 print(f"Total de amostras: {len(df)}")
 
@@ -60,5 +60,5 @@ print("Acurácia:", accuracy_score(y_test, y_pred))
 print(classification_report(y_test, y_pred))
 
 # Salvar modelo
-dump(svm, "Project/api/model/model.pkl")
+dump(svm, "api/model/model.pkl")
 print("Modelo salvo em Project/api/model/model.pkl")
